@@ -31,7 +31,7 @@ public class PokedexAdapter extends RecyclerView.Adapter<PokedexAdapter.PokedexV
                 public void onClick(View v) {
                     Pokemon current = (Pokemon) containerView.getTag();
                     Intent intent = new Intent(v.getContext(), PokemonActivity.class);
-                    intent.putExtra("name", current.getName());     //important
+                    intent.putExtra("name", current.getName());     // it just a key value pair
                     intent.putExtra("number", current.getNumber());
                     v.getContext().startActivity(intent);
                 }

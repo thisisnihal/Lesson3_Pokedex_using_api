@@ -21,6 +21,4 @@
         android:textAlignment="center"
         android:textSize="20sp"
         android:paddingTop="5dp"/>
-
-
 </LinearLayout>
