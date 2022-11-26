@@ -1,100 +1,35 @@
 ### This is Lesson 2 of CS50 Android Track
 you can take this course for free - https://cs50.harvard.edu/x/2020/tracks/mobile/android/  
 
-In this lesson we learnt about recycler views  
-
-* [x] Step 1: Add dependency for recycler view in app level gradle file  `implementation "androidx.recyclerview:recyclerview:1.2.1"` see below in line 40.
+In this lesson We learnt about APIs and how to use [Volley library]()  
+In previous lesson we hardcoded the Pokemon's *Name* and *Number* values, but in this lesson we will fetch the data from internet using APIs.  
+Basically We will make a request to a **URL(in this case https://pokeapi.co/)** using Volley Library and it will return a JSON format.  
+* [x] Step 1: Add Volley libaray in `build.gradle(:app)` in dependencies  
 ```Groovy
-android {
-    compileSdk 31
-
-    defaultConfig {
-        applicationId "com.example.pokedex"
-        minSdk 21
-        targetSdk 31
-        versionCode 1
-        versionName "1.0"
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-}
-
-dependencies {
-
-    implementation 'androidx.appcompat:appcompat:1.4.1'
-    implementation 'com.google.android.material:material:1.6.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-
-    implementation "androidx.recyclerview:recyclerview:1.2.1"
-
-    testImplementation 'junit:junit:4.+'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
-}
-```
-* [x] Step 2: Add a recycler **view** in `activity_main.xml`  
-```xml
-    <androidx.recyclerview.widget.RecyclerView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:id="@+id/recycler_view" />
+implementation 'com.android.volley:volley:1.1.1'
 ```  
-* [x] Step 3: Let's create a layout file named `pokedex_row.xml`  
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:id="@+id/pokedex_row"
-    android:padding="8dp"
-    android:clickable="true"
-    android:focusable="true"
-    android:foreground="?android:attr/selectableItemBackground">
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:id="@+id/pokedex_row_text_view"
-        android:textSize="20sp"/>
-</LinearLayout>
-```  
-* [x] Step 4: Create a data class `Pokemon.java`  
-```java
+And make some changes in `Pokemon.java` data class
+```Java
 public class Pokemon {
     private String name;
-    private int number;
+    private String url; // -> use url
 
-    Pokemon (String name, int number) {
+    Pokemon (String name, String url) {
         this.name = name;
-        this.number = number;
+        this.url = url;
     }
 
     public String getName() {
         return name;
     }
-    public int getNumber() {
-        return number;
+    public String getUrl() {
+        return url;
     }
 }
-```  
-* [ ] Step 5: To explain
-We only used getters here cause we need just a read-only object  
-Recycler View has a class attached to it called an [`Adapter`](https://developer.android.com/reference/androidx/recyclerview/widget/RecyclerView.Adapter).  
-Adapter defines what data is going to be displayed in a recycler view. 
+```
 
-Now lets create a `PokedexAdapter.java` class, this class is going to represent all of the data inside of our recycler view.  
-```java
+* [x] Step 2: This is how `PokedexAdapter.java` should look like    
+```Java
 public class PokedexAdapter extends RecyclerView.Adapter<PokedexAdapter.PokedexViewHolder> {
 
     public static class PokedexViewHolder extends RecyclerView.ViewHolder {
@@ -112,19 +47,50 @@ public class PokedexAdapter extends RecyclerView.Adapter<PokedexAdapter.PokedexV
                 public void onClick(View v) {
                     Pokemon current = (Pokemon) containerView.getTag();
                     Intent intent = new Intent(v.getContext(), PokemonActivity.class);
-                    intent.putExtra("name", current.getName());     // it just a key value pair
-                    intent.putExtra("number", current.getNumber());
+                    intent.putExtra("name", current.getName());    
+                    intent.putExtra("url", current.getUrl());
                     v.getContext().startActivity(intent);
                 }
             });
         }
     }
+    // TO EXPLAIN : )
+    private List<Pokemon> pokemon = new ArrayList<>();
+    private RequestQueue requestQueue;
 
-    private List<Pokemon> pokemon = Arrays.asList(
-            new Pokemon("Bulbasaur", 1),
-            new Pokemon("Pikachu", 2),
-            new Pokemon("Lavnasaur", 3)
-            );
+    PokedexAdapter (Context context) {
+        requestQueue = Volley.newRequestQueue(context);
+        loadPokemon();
+    }
+    // Load Json Data from api
+    public void loadPokemon() {
+        String url = "https://pokeapi.co/api/v2/pokemon?limit=151";
+        JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, url, null, new Response.Listener<JSONObject>() {
+            @Override
+            public void onResponse(JSONObject response) {
+                try {
+                    JSONArray results = response.getJSONArray("results");
+                    for (int i = 0; i < results.length(); i++) {
+                        JSONObject result = results.getJSONObject(i);
+                        String name = result.getString("name");
+                        pokemon.add(new Pokemon(
+                                name.substring(0, 1).toUpperCase() + name.substring(1),
+                                result.getString("url")
+                        ));
+                    }
+                    notifyDataSetChanged();
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.e("cs50", "Pokemon list error");
+            }
+        });
+        requestQueue.add(request);
+    }
 
     @NonNull
     @Override
@@ -146,63 +112,26 @@ public class PokedexAdapter extends RecyclerView.Adapter<PokedexAdapter.PokedexV
         return pokemon.size();
     }
 }
-```
-Now add this code. in `MainActivity.java` 
-```java
-    private RecyclerView recyclerView;
-    private RecyclerView.Adapter adapter;
-    private RecyclerView.LayoutManager layoutManager;
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        recyclerView = findViewById(R.id.recycler_view);
-        adapter = new PokedexAdapter();
-        layoutManager = new LinearLayoutManager(this);
-
-        recyclerView.setAdapter(adapter);
-        recyclerView.setLayoutManager(layoutManager);
-
-    }
-```
-Now Try to run the app.
-Lets create another activity called `PokemonActivity.java` and its corresponding layout file `activity_pokemon.xml`  
-This is how our `` should look like:  
-```java
-public class PokemonActivity extends AppCompatActivity {
-
-    private TextView nameTextView;
-    private TextView numberTextView;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_pokemon);
-
-        // important
-        String name  = getIntent().getStringExtra("name");
-        int number = getIntent().getIntExtra("number", 0);
-
-        nameTextView = findViewById(R.id.pokemon_name);
-        numberTextView = findViewById(R.id.pokemon_number);
-
-        nameTextView.setText(name);
-//      numberTextView.setText(Integer.toString(number));
-        numberTextView.setText(String.format("#%03d", number));
-    }
-}
-``` 
-and our `` file  
+```  
+* [x] Step 3: Add Internet permission in `AndroidManifest.xml` file  
 ```xml
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest ...
+    ...
+    ...
+<uses-permission android:name="android.permission.INTERNET"/>
+</manifest>
+```  
+* [x] Step 4: Add few more TextViews in `activity_pokemon.xml` layout  
+```Xml
+<LinearLayout
+   xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     tools:context=".PokemonActivity">
-<!-- above [tools:context=".PokemonActivity"]  basically tells us that this layout is associated with PokemonActivity.java  -->
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -217,17 +146,83 @@ and our `` file
         android:textAlignment="center"
         android:textSize="20sp"
         android:paddingTop="5dp"/>
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/pokemon_type1"
+        android:textAlignment="center"
+        android:textSize="20sp"
+        android:paddingTop="5dp"/>
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/pokemon_type2"
+        android:textAlignment="center"
+        android:textSize="20sp"
+        android:paddingTop="5dp"/>
 </LinearLayout>
-```  
-Make sure to add this line in `AndroidManifest.xml`:  
-```xml
-<activity
-        android:name=".PokemonActivity"
-        android:exported="false" />
+``` 
+* [x] Step 5: Make request for different attributes like Name, Number, Types `PokemonActivty.java`  
+```java
+    private TextView nameTextView;
+    private TextView numberTextView;
+    private String url;
+    private RequestQueue requestQueue;
+    private TextView type1TextView;
+    private TextView type2TextView;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_pokemon);
+
+        // important
+        url = getIntent().getStringExtra("url");
+        nameTextView = findViewById(R.id.pokemon_name);
+        numberTextView = findViewById(R.id.pokemon_number);
+        type1TextView = findViewById(R.id.pokemon_type1);
+        type2TextView = findViewById(R.id.pokemon_type2);
+
+        requestQueue = Volley.newRequestQueue(getApplicationContext());
+        load();
+    }
+    public void load() {
+        JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, url, null, new Response.Listener<JSONObject>() {
+            @Override
+            public void onResponse(JSONObject response) {
+                try {
+                    nameTextView.setText(response.getString("name"));
+                    numberTextView.setText(String.format("#%03d", response.getInt("id")));
+                  JSONArray typeEntries = response.getJSONArray("types");
+                  for (int i = 0; i < typeEntries.length(); i++) {
+                      JSONObject typeEntry = typeEntries.getJSONObject(i);
+                      int slot = typeEntry.getInt("slot");
+                      String type = typeEntry.getJSONObject("type").getString("name");
+
+                      if (slot == 1) {
+                          type1TextView.setText(type);
+                      }
+                      else if (slot == 2) {
+                          type2TextView.setText(type);
+                      }
+                  }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.e("cs50", "Pokemon Value error");
+            }
+        });
+        requestQueue.add(request);
+    }
 ```
+
 
 ***Note: I am still Learning so what I explained above take it as a pinch of salt. There is gaurantee/warranty of information given above : )***
 
-* [ ] To explain from Step 5
+* [ ] 
 * [ ] Add apk file 
 * [ ] Add screenshot of apk 
